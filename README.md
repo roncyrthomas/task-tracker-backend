@@ -2,7 +2,7 @@
 
 A REST API with real-time notifications for team task tracking and
 collaboration — accounts, teams, task assignment, comments, attachments, and
-AI-assisted task descriptions.
+AI-assisted task descriptions could be addded with key.
 
 ## Stack
 
