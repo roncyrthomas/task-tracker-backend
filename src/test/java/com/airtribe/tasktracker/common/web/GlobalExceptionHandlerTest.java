@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -41,7 +42,7 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void notFoundMapsTo404() throws Exception {
-        mockMvc.perform(get("/api/test/not-found"))
+        mockMvc.perform(get("/api/test/not-found").with(user("test-user")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.message").value("thing missing"));
@@ -49,28 +50,28 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void forbiddenMapsTo403() throws Exception {
-        mockMvc.perform(get("/api/test/forbidden"))
+        mockMvc.perform(get("/api/test/forbidden").with(user("test-user")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.message").value("nope"));
     }
 
     @Test
     void conflictMapsTo409() throws Exception {
-        mockMvc.perform(get("/api/test/conflict"))
+        mockMvc.perform(get("/api/test/conflict").with(user("test-user")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.message").value("dup"));
     }
 
     @Test
     void badRequestMapsTo400() throws Exception {
-        mockMvc.perform(get("/api/test/bad-request"))
+        mockMvc.perform(get("/api/test/bad-request").with(user("test-user")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.message").value("bad input"));
     }
 
     @Test
     void unexpectedExceptionMapsTo500WithoutLeakingDetails() throws Exception {
-        mockMvc.perform(get("/api/test/boom"))
+        mockMvc.perform(get("/api/test/boom").with(user("test-user")))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.error.message").value("An unexpected error occurred."))
                 .andExpect(jsonPath("$.error.message", org.hamcrest.Matchers.not(
