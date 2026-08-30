@@ -40,6 +40,8 @@
 - Produces: a bootable Spring Boot app on port `8080`, `GET /api/health` returning `{"success":true,"data":{"status":"UP"},"error":null,"meta":null}` (raw, ahead of the shared `ApiResponse` type introduced in Task 2 — this task hand-writes the same shape so later tasks can swap it in without changing the contract).
 - Produces: Maven coordinates `groupId=com.airtribe`, `artifactId=task-tracker-backend`, `packaging=jar`.
 
+**Deliberately deferred:** `spring-boot-starter-security` and `spring-security-test` are NOT added to `pom.xml` here — Task 5 adds them together with `SecurityConfig`. If they were on the classpath from Task 1 with no `SecurityConfig` yet, Spring Boot's default auto-configuration would deny every request (including `/api/health`) with 401, breaking this task's own test and Task 2's `GlobalExceptionHandlerTest`. Task 5, Step 0 adds both dependencies back in as part of wiring up security.
+
 - [ ] **Step 1: Write `pom.xml`**
 
 ```xml
@@ -77,10 +79,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -138,11 +136,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -1271,6 +1264,8 @@ git commit -m "feat: add User entity, repository, and service"
 ### Task 5: Security Infrastructure — JWT, Principal, Filter Chain
 
 **Files:**
+- Modify: `pom.xml` — add back `spring-boot-starter-security` and `spring-security-test` (deferred from Task 1, see that task's note)
+- Modify: `src/test/java/com/airtribe/tasktracker/common/web/GlobalExceptionHandlerTest.java` — authenticate its requests now that `anyRequest().authenticated()` applies to them
 - Create: `src/main/java/com/airtribe/tasktracker/security/JwtProperties.java`
 - Create: `src/main/java/com/airtribe/tasktracker/security/JwtPrincipal.java`
 - Create: `src/main/java/com/airtribe/tasktracker/security/JwtService.java`
@@ -1284,6 +1279,49 @@ git commit -m "feat: add User entity, repository, and service"
 **Interfaces:**
 - Consumes: `User` (Task 4).
 - Produces: `JwtService.generateAccessToken(User user) String`, `JwtService.parseAccessToken(String token) JwtPrincipal` (throws `io.jsonwebtoken.JwtException` subtypes on invalid/expired tokens). `JwtPrincipal(UUID userId, String email)`. `UserPrincipal` — implements `org.springframework.security.core.userdetails.UserDetails`, constructed as `new UserPrincipal(User user)`, exposes `getUserId() UUID` and `getUser() User` in addition to the `UserDetails` contract. A `PasswordEncoder` bean (`BCryptPasswordEncoder`) available for injection everywhere. **Task 6 (auth) and every later controller that needs the current user obtain it via `@AuthenticationPrincipal UserPrincipal principal` and call `principal.getUserId()`.**
+
+- [ ] **Step 0: Add the security dependencies back to `pom.xml`**
+
+Insert these two `<dependency>` blocks — the first alongside the other non-test `spring-boot-starter-*` entries (e.g. directly after `spring-boot-starter-data-jpa`), the second alongside the other `scope=test` entries (e.g. directly after `spring-boot-starter-test`):
+
+```xml
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+```
+
+```xml
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+```
+
+- [ ] **Step 0b: Authenticate `GlobalExceptionHandlerTest`'s requests**
+
+Once `SecurityConfig` (this task, Step 10) is in place, `anyRequest().authenticated()` applies to `GlobalExceptionHandlerTest`'s `/api/test/*` probe endpoints too — without a fix they'd all return 401 instead of the status each test expects. Fix it now, in the same commit as `SecurityConfig`, so the test suite never has a broken intermediate state.
+
+Add this import to `GlobalExceptionHandlerTest.java`:
+
+```java
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+```
+
+Add `.with(user("test-user"))` to every `mockMvc.perform(get(...))` call in the file, for example:
+
+```java
+    @Test
+    void notFoundMapsTo404() throws Exception {
+        mockMvc.perform(get("/api/test/not-found").with(user("test-user")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.message").value("thing missing"));
+    }
+```
+
+Apply the same `.with(user("test-user"))` addition to `forbiddenMapsTo403`, `conflictMapsTo409`, `badRequestMapsTo400`, and `unexpectedExceptionMapsTo500WithoutLeakingDetails`. Re-run `mvn.cmd -q test -Dtest=GlobalExceptionHandlerTest` after `SecurityConfig` exists (Step 10) to confirm all five still pass.
 
 - [ ] **Step 1: Write the failing test for `JwtService`**
 
@@ -1697,8 +1735,8 @@ public class SecurityConfig {
 - [ ] **Step 11: Commit**
 
 ```bash
-git add src/main/java/com/airtribe/tasktracker/security src/main/java/com/airtribe/tasktracker/config/SecurityConfig.java \
-        src/test/java/com/airtribe/tasktracker/security
+git add pom.xml src/main/java/com/airtribe/tasktracker/security src/main/java/com/airtribe/tasktracker/config/SecurityConfig.java \
+        src/test/java/com/airtribe/tasktracker/security src/test/java/com/airtribe/tasktracker/common/web/GlobalExceptionHandlerTest.java
 git commit -m "feat: add JWT service, security principal, and stateless filter chain"
 ```
 
