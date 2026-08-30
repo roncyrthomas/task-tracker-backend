@@ -1,0 +1,11 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+app:
+  jwt:
+    secret: test-only-secret-key-not-for-production-use-32bytes
+  storage:
+    root-dir: ./build/test-attachments
+  ai:
+    anthropic-api-key: ""
