@@ -1,8 +1,8 @@
 # Task Tracker Backend
 
-A REST API (+ real-time WebSocket notifications) for team task tracking and
-collaboration: accounts, teams, task assignment, comments, attachments, and
-AI-assisted task descriptions. Built for the Airtribe backend assignment.
+A REST API with real-time notifications for team task tracking and
+collaboration — accounts, teams, task assignment, comments, attachments, and
+AI-assisted task descriptions.
 
 ## Stack
 
@@ -31,9 +31,8 @@ com.airtribe.tasktracker
 ```
 
 Every team-scoped endpoint (tasks, comments, attachments, invitations) checks
-membership through `team.TeamMembershipService` before acting. Full design
-rationale in
-[`docs/superpowers/specs/2026-08-30-task-tracker-backend-design.md`](docs/superpowers/specs/2026-08-30-task-tracker-backend-design.md).
+membership through `team.TeamMembershipService` before acting — the single
+authorization chokepoint for the whole system.
 
 ## Getting Started
 
@@ -48,9 +47,8 @@ docker compose up -d postgres
 mvn spring-boot:run
 ```
 
-The API listens on `http://localhost:8080`. Interactive docs:
-`http://localhost:8080/swagger-ui.html`. Raw OpenAPI document:
-`http://localhost:8080/v3/api-docs`.
+API: `http://localhost:8080`. Interactive docs: `http://localhost:8080/swagger-ui.html`.
+Raw OpenAPI document: `http://localhost:8080/v3/api-docs`.
 
 ### Configuration
 
@@ -92,7 +90,10 @@ Full endpoint-by-endpoint reference: Swagger UI at `/swagger-ui.html`.
 | AI | `POST /api/tasks/ai/generate-description` |
 | Notifications | `GET /api/notifications`, `PATCH /api/notifications/{id}/read`, `WS /ws` (STOMP, subscribe to `/user/queue/notifications`, connect with `?token=<accessToken>`) |
 
-## Project Docs
+## Security
 
-- [Design spec](docs/superpowers/specs/2026-08-30-task-tracker-backend-design.md) — requirements, architecture rationale, data model, security model
-- [Implementation plan](docs/superpowers/plans/2026-08-30-task-tracker-backend.md) — the task-by-task build plan this project was implemented from
+BCrypt password hashing. JWT access tokens (~15 min) + rotating refresh
+tokens, stored hashed server-side so they can be revoked on logout. Every
+team-scoped resource is gated on membership, with role checks (`OWNER` /
+`ADMIN` / `MEMBER`) for management actions. File uploads are size- and
+content-type-restricted, with sanitized storage paths to block traversal.
